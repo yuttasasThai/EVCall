@@ -1,6 +1,7 @@
 import { KeyRound, Loader2, Phone, Save, User, Volume2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { PublicShopInfo } from '../types/repair';
+import { apiUpdateTechSettings } from '../utils/apiClient';
 import { speakThai } from '../utils/voice';
 
 interface TechnicianSettingsPanelProps {
@@ -51,36 +52,28 @@ export function TechnicianSettingsPanel({
 
     setSaving(true);
     try {
-      const res = await fetch('/api/technician/settings', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders,
-        },
-        body: JSON.stringify({
+      const updatedShop = await apiUpdateTechSettings(
+        {
           branchCode: shopInfo.branchCode,
           technicianName: technicianName.trim(),
           technicianPhone: technicianPhone.trim(),
           newPasscode: newPasscode.trim() || undefined,
-        }),
-      });
+        },
+        authHeaders,
+      );
 
-      const data = (await res.json()) as { shop?: PublicShopInfo; error?: string };
-      if (!res.ok || !data.shop) {
-        setMessage({ type: 'err', text: data.error || 'บันทึกการตั้งค่าไม่สำเร็จ' });
-        setSaving(false);
-        return;
-      }
-
-      onUpdated(data.shop);
+      onUpdated(updatedShop);
       setNewPasscode('');
       setConfirmPasscode('');
       setMessage({
         type: 'ok',
         text: 'บันทึกการตั้งค่าช่างเรียบร้อย ข้อมูลแสดงผลบนหน้าลูกค้าและเสียงขอบคุณถูกอัปเดตทันที',
       });
-    } catch {
-      setMessage({ type: 'err', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์' });
+    } catch (err) {
+      setMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'บันทึกการตั้งค่าไม่สำเร็จ',
+      });
     } finally {
       setSaving(false);
     }

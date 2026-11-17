@@ -2,6 +2,7 @@ import { KeyRound, Loader2, ShieldCheck, Wrench, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, type FormEvent } from 'react';
 import type { PublicShopInfo } from '../types/repair';
+import { apiAdminLogin, apiTechnicianLogin } from '../utils/apiClient';
 
 interface AuthGateModalProps {
   mode: 'technician' | 'admin';
@@ -41,45 +42,19 @@ export function AuthGateModal({
     setLoading(true);
     try {
       if (mode === 'admin') {
-        const res = await fetch('/api/auth/admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ passcode }),
-        });
-        const data = (await res.json()) as { ok?: boolean; token?: string; error?: string };
-        if (!res.ok || !data.token) {
-          setErrorText(data.error || 'รหัสผ่านไม่ถูกต้อง');
-          setPasscode('');
-          setLoading(false);
-          return;
-        }
-        onSuccessAdmin(data.token);
+        const token = await apiAdminLogin(passcode);
+        onSuccessAdmin(token);
       } else {
-        const res = await fetch('/api/auth/technician', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            branchCode,
-            username: isBranchTech ? username.trim() : undefined,
-            passcode,
-          }),
+        const result = await apiTechnicianLogin({
+          branchCode,
+          username: isBranchTech ? username.trim() : undefined,
+          passcode,
         });
-        const data = (await res.json()) as {
-          ok?: boolean;
-          token?: string;
-          shop?: PublicShopInfo;
-          error?: string;
-        };
-        if (!res.ok || !data.token || !data.shop) {
-          setErrorText(data.error || 'รหัสผ่านไม่ถูกต้อง');
-          setPasscode('');
-          setLoading(false);
-          return;
-        }
-        onSuccessTechnician(data.token, data.shop);
+        onSuccessTechnician(result.token, result.shop);
       }
-    } catch {
-      setErrorText('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'รหัสผ่านไม่ถูกต้อง');
+      setPasscode('');
       setLoading(false);
     }
   };

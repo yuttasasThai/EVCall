@@ -16,6 +16,12 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { BranchLink } from '../types/repair';
+import {
+  apiCreateBranch,
+  apiDeleteBranch,
+  apiListBranches,
+  apiUpdateBranch,
+} from '../utils/apiClient';
 import { exportBranchesToExcelCsv, formatThaiDateTime } from '../utils/notifications';
 
 interface BranchManagerPanelProps {
@@ -82,14 +88,8 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
 
   const fetchBranches = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/branches', {
-        headers: { 'x-admin-token': adminToken },
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { branches?: BranchLink[] };
-      if (Array.isArray(data.branches)) {
-        setBranches(data.branches);
-      }
+      const list = await apiListBranches(adminToken);
+      setBranches(list);
     } finally {
       setLoading(false);
     }
@@ -144,35 +144,26 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
 
     setCreating(true);
     try {
-      const res = await fetch('/api/admin/branches', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-token': adminToken,
-        },
-        body: JSON.stringify({
+      const created = await apiCreateBranch(
+        {
           branchName: branchName.trim(),
           username: username.trim(),
           password: password.trim(),
           technicianName: technicianName.trim() || branchName.trim(),
           technicianPhone: technicianPhone.trim() || '080-000-0000',
           expiresAt: expDate.toISOString(),
-        }),
-      });
-      const data = (await res.json()) as { branch?: BranchLink; error?: string };
-      if (!res.ok || !data.branch) {
-        setFormError(data.error || 'ไม่สามารถสร้างลิงก์สาขาได้');
-        return;
-      }
+        },
+        adminToken,
+      );
 
-      setBranches((prev) => [data.branch!, ...prev]);
+      setBranches((prev) => [created, ...prev]);
       setBranchName('');
       setUsername('');
       setPassword('');
       setTechnicianName('');
       setTechnicianPhone('');
-    } catch {
-      setFormError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'ไม่สามารถสร้างลิงก์สาขาได้');
     } finally {
       setCreating(false);
     }
@@ -188,21 +179,15 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
       d.setDate(d.getDate() + deltaDays);
     }
 
-    const res = await fetch(`/api/admin/branches/${encodeURIComponent(branch.id)}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': adminToken,
-      },
-      body: JSON.stringify({
+    const updated = await apiUpdateBranch(
+      branch.id,
+      {
         expiresAt: d.toISOString(),
         isActive: true,
-      }),
-    });
-    const data = (await res.json()) as { branch?: BranchLink };
-    if (res.ok && data.branch) {
-      setBranches((prev) => prev.map((b) => (b.id === data.branch!.id ? data.branch! : b)));
-    }
+      },
+      adminToken,
+    );
+    setBranches((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
   };
 
   const handleSaveCustomExpiry = async (e: FormEvent) => {
@@ -211,44 +196,27 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
     const parsed = new Date(editExpiresInput);
     if (Number.isNaN(parsed.getTime())) return;
 
-    const res = await fetch(`/api/admin/branches/${encodeURIComponent(editingBranch.id)}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': adminToken,
-      },
-      body: JSON.stringify({ expiresAt: parsed.toISOString(), isActive: true }),
-    });
-    const data = (await res.json()) as { branch?: BranchLink };
-    if (res.ok && data.branch) {
-      setBranches((prev) => prev.map((b) => (b.id === data.branch!.id ? data.branch! : b)));
-      setEditingBranch(null);
-    }
+    const updated = await apiUpdateBranch(
+      editingBranch.id,
+      { expiresAt: parsed.toISOString(), isActive: true },
+      adminToken,
+    );
+    setBranches((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    setEditingBranch(null);
   };
 
   const handleToggleActive = async (branch: BranchLink) => {
-    const res = await fetch(`/api/admin/branches/${encodeURIComponent(branch.id)}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': adminToken,
-      },
-      body: JSON.stringify({ isActive: !branch.isActive }),
-    });
-    const data = (await res.json()) as { branch?: BranchLink };
-    if (res.ok && data.branch) {
-      setBranches((prev) => prev.map((b) => (b.id === data.branch!.id ? data.branch! : b)));
-    }
+    const updated = await apiUpdateBranch(
+      branch.id,
+      { isActive: !branch.isActive },
+      adminToken,
+    );
+    setBranches((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
   };
 
   const handleDeleteBranch = async (id: string) => {
-    const res = await fetch(`/api/admin/branches/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: { 'x-admin-token': adminToken },
-    });
-    if (res.ok) {
-      setBranches((prev) => prev.filter((b) => b.id !== id));
-    }
+    await apiDeleteBranch(id, adminToken);
+    setBranches((prev) => prev.filter((b) => b.id !== id));
   };
 
   const handleCopyUrl = async (branch: BranchLink) => {

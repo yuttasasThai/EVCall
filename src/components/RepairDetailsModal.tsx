@@ -1,6 +1,6 @@
 import { ArrowLeft, Crosshair, ExternalLink, Loader2, MapPin, X } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useState, type FormEvent, type MouseEvent } from 'react';
+import { useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { QUICK_ISSUES, type VehicleOption } from '../constants/vehicles';
 import type { CreateRepairPayload } from '../types/repair';
 
@@ -33,6 +33,7 @@ export function RepairDetailsModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const submitLockRef = useRef(false);
 
   const handleGetCurrentGps = () => {
     if (!navigator.geolocation) {
@@ -74,6 +75,7 @@ export function RepairDetailsModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current || isSubmitting) return;
     setErrorText('');
 
     if (!customerName.trim()) {
@@ -89,6 +91,7 @@ export function RepairDetailsModal({
       return;
     }
 
+    submitLockRef.current = true;
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -105,6 +108,7 @@ export function RepairDetailsModal({
         },
       });
     } catch (err) {
+      submitLockRef.current = false;
       setErrorText(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการส่งข้อมูล');
       setIsSubmitting(false);
     }
@@ -327,13 +331,16 @@ export function RepairDetailsModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              aria-label="แจ้งซ่อม"
-              className="btn-electric-submit relative w-28 h-28 rounded-full flex flex-col items-center justify-center p-1.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400 disabled:opacity-60"
+              aria-busy={isSubmitting}
+              aria-label={isSubmitting ? 'กำลังส่งข้อมูลแจ้งซ่อม' : 'แจ้งซ่อม'}
+              className={`btn-electric-submit relative w-28 h-28 rounded-full flex flex-col items-center justify-center p-1.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400 transition-opacity ${
+                isSubmitting ? 'opacity-75 cursor-not-allowed pointer-events-none' : ''
+              }`}
             >
               {/* Inner sculpted electric core */}
               <span className="w-full h-full rounded-full bg-gradient-to-br from-amber-300 via-yellow-400 to-sky-500 border-2 border-white/80 shadow-inner flex flex-col items-center justify-center px-2">
                 {isSubmitting ? (
-                  <Loader2 className="w-8 h-8 text-slate-900 animate-spin" />
+                  <Loader2 className="w-9 h-9 text-slate-900 animate-spin" strokeWidth={2.6} />
                 ) : (
                   /* Custom Electric Cable + Plug + Lightning Vector */
                   <svg
@@ -374,7 +381,9 @@ export function RepairDetailsModal({
               </span>
             </button>
             <span className="mt-2 text-[11px] text-slate-500">
-              กดปุ่มสายไฟฟ้าเพื่อส่งข้อมูลถึงช่างทันที
+              {isSubmitting
+                ? 'กำลังส่งคำขอแจ้งซ่อม กรุณารอสักครู่...'
+                : 'กดปุ่มสายไฟฟ้าเพื่อส่งข้อมูลถึงช่างทันที'}
             </span>
           </div>
         </form>

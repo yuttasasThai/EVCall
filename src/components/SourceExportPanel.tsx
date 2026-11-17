@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   CheckCircle2,
   Download,
   FileArchive,
@@ -8,6 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { isExpressServerAvailable } from '../utils/apiClient';
 
 interface SourceFileEntry {
   path: string;
@@ -33,6 +35,7 @@ function formatBytes(bytes: number): string {
 
 export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
   const [inventory, setInventory] = useState<SourceInventoryResponse | null>(null);
+  const [serverReady, setServerReady] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
@@ -42,10 +45,16 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
   const fetchInventory = useCallback(async () => {
     setLoading(true);
     try {
+      const hasExpress = await isExpressServerAvailable();
+      setServerReady(hasExpress);
+      if (!hasExpress) {
+        return;
+      }
       const res = await fetch('/api/admin/source-files', {
         headers: { 'x-admin-token': adminToken },
       });
-      if (!res.ok) return;
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok || !ct.includes('application/json')) return;
       const data = (await res.json()) as SourceInventoryResponse;
       setInventory(data);
     } finally {
@@ -79,7 +88,7 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `ev-care-v${inventory?.version || '1.3.0'}-source.zip`;
+      link.download = `ev-care-v${inventory?.version || '1.4.0'}-source.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -116,6 +125,25 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
     }
   };
 
+  if (!loading && !serverReady) {
+    return (
+      <section className="bg-white rounded-2xl border border-amber-200 shadow-sm p-4 sm:p-6 space-y-3">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              การดาวน์โหลด Source Code (.zip) ใช้ได้เฉพาะตอนรัน Node Server
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              ขณะนี้แอปกำลังรันบนโหมด Static Hosting (เช่น Vercel) จึงไม่มีไฟล์ต้นฉบับอยู่บนเซิร์ฟเวอร์
+              หากต้องการโหลดไฟล์ `.zip` ให้เปิดหน้า Admin จากเซิร์ฟเวอร์ AI Studio หรือรันด้วยคำสั่ง `npm run start`
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -144,7 +172,6 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
         </button>
       </div>
 
-      {/* Summary & GitHub Readiness Checklist */}
       {inventory && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
@@ -184,7 +211,6 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
         </div>
       )}
 
-      {/* Searchable File Explorer */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h3 className="text-xs sm:text-sm font-semibold text-slate-800 flex items-center gap-1.5">
