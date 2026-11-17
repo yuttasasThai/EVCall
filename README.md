@@ -1,4 +1,4 @@
-# EV Care - โปรแกรมแจ้งซ่อมรถไฟฟ้าออนไลน์ (v1.3.0)
+# EV Care - โปรแกรมแจ้งซ่อมรถไฟฟ้าออนไลน์ (v1.4.1)
 
 ระบบแจ้งซ่อมรถไฟฟ้าออนไลน์แบบเรียลไทม์ รองรับมือถือและเดสก์ท็อป พร้อมระบบเสียงพูดแนะนำภาษาไทย หน้าช่าง หน้า Admin สร้างลิงก์สาขา ดาวน์โหลด Source Code และตารางประวัติสไตล์ Excel
 
@@ -13,6 +13,7 @@
 - `README.md` — คู่มือและรายการตรวจสอบไฟล์ครบชุด
 - `server.ts` — Backend Express + WebSocket + บันทึกข้อมูลถาวร
 - `tsconfig.json` — การตั้งค่า TypeScript
+- `vercel.json` — การตั้งค่า Route สำหรับ Vercel
 - `vite.config.ts` — การตั้งค่า Vite + Tailwind CSS
 - `src/`
   - `App.tsx`
@@ -38,6 +39,7 @@
   - `types/`
     - `repair.ts`
   - `utils/`
+    - `apiClient.ts`
     - `notifications.ts`
     - `voice.ts`
 

@@ -206,6 +206,11 @@ async function startServer() {
     ws.send(JSON.stringify(initPayload));
   });
 
+  // Health check for Express backend detection
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, engine: 'express' });
+  });
+
   // Public Shop / Branch Info (for TTS technician name, phone button, and branch expiry status)
   app.get('/api/shop-info', (req, res) => {
     const branchCode = typeof req.query.branch === 'string' ? req.query.branch : 'main';
