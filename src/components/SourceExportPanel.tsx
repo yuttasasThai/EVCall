@@ -88,7 +88,7 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `ev-care-v${inventory?.version || '1.4.3'}-source.zip`;
+      link.download = `ev-care-v${inventory?.version || '1.4.4'}-source.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

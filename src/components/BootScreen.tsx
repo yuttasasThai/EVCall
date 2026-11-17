@@ -1,4 +1,4 @@
-import { Volume2, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { APP_NAME, APP_VERSION } from '../constants/version';
@@ -15,7 +15,6 @@ const HOLD_AFTER_TYPING_MS = 950;
 export function BootScreen({ onComplete }: BootScreenProps) {
   const [typedCount, setTypedCount] = useState(0);
   const [exiting, setExiting] = useState(false);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const completedRef = useRef(false);
 
   useEffect(() => {
@@ -55,7 +54,6 @@ export function BootScreen({ onComplete }: BootScreenProps) {
   // Tapping anywhere on the boot screen unlocks Chrome Web Speech audio early
   const handleWarmAudio = () => {
     unlockSpeechAudio();
-    setAudioUnlocked(true);
   };
 
   return (
@@ -64,8 +62,9 @@ export function BootScreen({ onComplete }: BootScreenProps) {
       animate={{ opacity: exiting ? 0 : 1 }}
       transition={{ duration: 0.22 }}
       onClick={handleWarmAudio}
+      onTouchEnd={handleWarmAudio}
       onPointerDown={handleWarmAudio}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F6F8FB] px-5 text-center select-none cursor-pointer"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F6F8FB] px-5 text-center select-none"
     >
       <div className="w-full max-w-sm flex flex-col items-center">
         {/* 3D Electric Emblem */}
@@ -105,11 +104,6 @@ export function BootScreen({ onComplete }: BootScreenProps) {
         <p className="mt-4 text-[11px] font-mono-tabular text-slate-400">
           กำลังเตรียมระบบ · {APP_VERSION}
         </p>
-
-        <span className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-sky-700/80 font-medium">
-          <Volume2 className="w-3.5 h-3.5" />
-          {audioUnlocked ? 'เปิดเสียงแนะนำพร้อมใช้งานแล้ว' : 'แตะหน้าจอระหว่างโหลดเพื่อเปิดเสียงอัตโนมัติ'}
-        </span>
       </div>
     </motion.div>
   );
