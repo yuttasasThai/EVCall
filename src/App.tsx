@@ -19,7 +19,13 @@ import { APP_NAME, APP_VERSION } from './constants/version';
 import { useRepairSocket } from './hooks/useRepairSocket';
 import type { CreateRepairPayload, RepairTicket } from './types/repair';
 import { playAlertChime, triggerChromeNotification } from './utils/notifications';
-import { preloadVoices, setVoiceEnabled, speakThai, stopSpeaking } from './utils/voice';
+import {
+  preloadVoices,
+  setVoiceEnabled,
+  speakThai,
+  stopSpeaking,
+  unlockSpeechAudio,
+} from './utils/voice';
 
 const ACTIVE_TICKET_STORAGE_KEY = 'ev_care_active_ticket_id';
 
@@ -51,6 +57,7 @@ export default function App() {
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleOption | null>(null);
   const [incomingAlert, setIncomingAlert] = useState<RepairTicket | null>(null);
   const [voiceOn, setVoiceOn] = useState<boolean>(true);
+  const [voiceNeedsTap, setVoiceNeedsTap] = useState<boolean>(false);
   const [bootDone, setBootDone] = useState<boolean>(false);
 
   const arrivalVoiceCountRef = useRef(0);
@@ -105,6 +112,7 @@ export default function App() {
   useEffect(() => {
     if (
       !bootDone ||
+      !voiceOn ||
       viewMode !== 'customer' ||
       showStatusScreen ||
       vehicleModalOpen ||
@@ -112,6 +120,7 @@ export default function App() {
       shopInfo.isExpired ||
       shopInfo.isNotFound
     ) {
+      setVoiceNeedsTap(false);
       return;
     }
     if (arrivalVoiceCountRef.current >= 2) {
@@ -122,15 +131,26 @@ export default function App() {
     let reminderTimer: number | null = null;
     let gestureAttached = false;
 
-    const handleFirstGesture = (e: PointerEvent) => {
+    const detachGestureFallback = () => {
+      if (!gestureAttached) return;
       gestureAttached = false;
+      window.removeEventListener('click', handleFirstGesture, true);
+    };
+
+    const handleFirstGesture = (e: MouseEvent) => {
+      detachGestureFallback();
       if (cancelled || arrivalVoiceCountRef.current >= 2) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest('button[aria-label="แจ้งซ่อมงาน"]')) {
-        arrivalVoiceCountRef.current = 2;
+      // If user tapped main repair button, vehicle selector voice, or mute toggle, let their click handler handle audio
+      if (
+        target?.closest('button[aria-label="แจ้งซ่อมงาน"]') ||
+        target?.closest('button[data-voice-toggle="true"]') ||
+        target?.closest('button[data-voice-unlock="true"]')
+      ) {
         return;
       }
       if (arrivalVoiceCountRef.current === 0) {
+        unlockSpeechAudio();
         speakArrival();
       }
     };
@@ -138,7 +158,7 @@ export default function App() {
     const attachGestureFallback = () => {
       if (gestureAttached || cancelled) return;
       gestureAttached = true;
-      window.addEventListener('pointerdown', handleFirstGesture, { once: true });
+      window.addEventListener('click', handleFirstGesture, { once: true, capture: true });
     };
 
     const speakArrival = () => {
@@ -146,6 +166,8 @@ export default function App() {
       speakThai('กรุณากดปุ่ม เพื่อแจ้งซ่อม', {
         onStart: () => {
           if (cancelled) return;
+          setVoiceNeedsTap(false);
+          detachGestureFallback();
           arrivalVoiceCountRef.current += 1;
           if (arrivalVoiceCountRef.current === 1 && reminderTimer === null) {
             reminderTimer = window.setTimeout(() => {
@@ -157,6 +179,7 @@ export default function App() {
         },
         onBlocked: () => {
           if (cancelled) return;
+          setVoiceNeedsTap(true);
           attachGestureFallback();
         },
       });
@@ -170,12 +193,11 @@ export default function App() {
       if (reminderTimer !== null) {
         window.clearTimeout(reminderTimer);
       }
-      if (gestureAttached) {
-        window.removeEventListener('pointerdown', handleFirstGesture);
-      }
+      detachGestureFallback();
     };
   }, [
     bootDone,
+    voiceOn,
     viewMode,
     showStatusScreen,
     vehicleModalOpen,
@@ -184,15 +206,52 @@ export default function App() {
     shopInfo.isNotFound,
   ]);
 
+  const handleTapEnableVoice = () => {
+    unlockSpeechAudio();
+    setVoiceOn(true);
+    setVoiceEnabled(true);
+    setVoiceNeedsTap(false);
+    speakThai('กรุณากดปุ่ม เพื่อแจ้งซ่อม', {
+      onStart: () => {
+        arrivalVoiceCountRef.current = Math.max(arrivalVoiceCountRef.current, 1);
+      },
+    });
+  };
+
   const handleToggleVoice = () => {
+    if (voiceOn && voiceNeedsTap) {
+      handleTapEnableVoice();
+      return;
+    }
     const next = !voiceOn;
     setVoiceOn(next);
     setVoiceEnabled(next);
+    if (next) {
+      unlockSpeechAudio();
+      if (
+        viewMode === 'customer' &&
+        !showStatusScreen &&
+        !vehicleModalOpen &&
+        !selectedVehicle &&
+        arrivalVoiceCountRef.current === 0
+      ) {
+        speakThai('กรุณากดปุ่ม เพื่อแจ้งซ่อม', {
+          onStart: () => {
+            setVoiceNeedsTap(false);
+            arrivalVoiceCountRef.current = 1;
+          },
+        });
+      }
+    } else {
+      setVoiceNeedsTap(false);
+    }
   };
 
   // 1.2 Open Vehicle Selector -> speak prompt
   const handleOpenVehicleModal = () => {
     arrivalVoiceCountRef.current = 2; // Stop arrival reminders once user interacts
+    setVoiceNeedsTap(false);
+    unlockSpeechAudio();
     setVehicleModalOpen(true);
     speakThai('กรุณาเลือกชนิดรถที่จะแจ้ง');
   };
@@ -264,27 +323,29 @@ export default function App() {
         {!bootDone && <BootScreen onComplete={handleBootComplete} />}
       </AnimatePresence>
       {/* Clean Single-Row Header */}
-      <header className="sticky top-0 z-30 h-14 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-6 flex items-center justify-between gap-2">
+      <header className="sticky top-0 z-30 h-14 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-2.5 sm:px-6 flex items-center justify-between gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={() => {
             setViewMode('customer');
             setShowStatusScreen(false);
           }}
-          className="text-base sm:text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 whitespace-nowrap shrink-0"
+          className="min-w-0 text-sm sm:text-lg font-bold tracking-tight text-slate-900 flex items-center gap-1.5 sm:gap-2"
         >
-          <span className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-700 text-white flex items-center justify-center shadow-sm">
-            <Zap className="w-4 h-4 fill-amber-300 text-amber-300" />
+          <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-700 text-white flex items-center justify-center shadow-sm shrink-0">
+            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-300 text-amber-300" />
           </span>
-          <span>{isBranchMode ? shopInfo.branchName : APP_NAME}</span>
+          <span className="truncate max-w-[115px] sm:max-w-none">
+            {isBranchMode ? shopInfo.branchName : APP_NAME}
+          </span>
         </button>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {viewMode === 'customer' && activeTicket && !showStatusScreen && (
             <button
               type="button"
               onClick={() => setShowStatusScreen(true)}
-              className="px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-xs font-semibold hover:bg-sky-100 transition-colors whitespace-nowrap"
+              className="px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-[11px] sm:text-xs font-semibold hover:bg-sky-100 transition-colors whitespace-nowrap"
             >
               สถานะ {activeTicket.code}
             </button>
@@ -292,6 +353,7 @@ export default function App() {
 
           <button
             type="button"
+            data-voice-toggle="true"
             onClick={handleToggleVoice}
             aria-label={voiceOn ? 'ปิดเสียงพูด' : 'เปิดเสียงพูด'}
             title={voiceOn ? 'เสียงแนะนำเปิดอยู่' : 'เสียงแนะนำปิดอยู่'}
@@ -309,7 +371,7 @@ export default function App() {
                 handleOpenTechnician();
               }
             }}
-            className={`px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap ${
+            className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-[11px] sm:text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap ${
               viewMode === 'technician'
                 ? 'bg-sky-600 text-white hover:bg-sky-700'
                 : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -330,7 +392,7 @@ export default function App() {
                   handleOpenAdmin();
                 }
               }}
-              className={`px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap ${
+              className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-[11px] sm:text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap ${
                 viewMode === 'admin'
                   ? 'bg-slate-900 text-white hover:bg-slate-800'
                   : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -393,31 +455,40 @@ export default function App() {
           />
         ) : (
           /* Customer Home: ONLY ONE 3D Circular Repair Button + Version Footer */
-          <div className="flex-1 flex flex-col items-center justify-between px-6 py-8 text-center">
+          <div className="flex-1 flex flex-col items-center justify-between px-4 sm:px-6 py-5 sm:py-8 text-center">
             <div />
 
-            <div className="flex flex-col items-center">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight text-balance">
-                ศูนย์แจ้งซ่อมรถไฟฟ้าออนไลน์
+            <div className="flex flex-col items-center w-full max-w-lg">
+              <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-tight text-balance">
+                แจ้งซ่อมรถไฟฟ้าออนไลน์
               </h1>
-              <p className="mt-1.5 text-sm text-slate-500 max-w-xs sm:max-w-sm">
-                กดปุ่มด้านล่างเพื่อเลือกชนิดรถ กรอกอาการ และปักหมุดเรียกช่าง
-              </p>
 
-              <div className="my-9">
-                <div className="btn-3d-outer p-3.5 sm:p-4 rounded-full inline-flex items-center justify-center">
+              {voiceNeedsTap && voiceOn && (
+                <button
+                  type="button"
+                  data-voice-unlock="true"
+                  onClick={handleTapEnableVoice}
+                  className="mt-4 min-h-[44px] px-4 py-2 rounded-xl bg-sky-50 border border-sky-200 text-sky-700 text-xs sm:text-sm font-semibold hover:bg-sky-100 active:scale-[0.98] transition-all inline-flex items-center gap-2 shadow-sm"
+                >
+                  <Volume2 className="w-4 h-4 text-sky-600 shrink-0" />
+                  แตะเพื่อเปิดเสียงแนะนำ
+                </button>
+              )}
+
+              <div className="my-6 sm:my-9">
+                <div className="btn-3d-outer p-3 sm:p-4 rounded-full inline-flex items-center justify-center">
                   <button
                     type="button"
                     onClick={handleOpenVehicleModal}
                     aria-label="แจ้งซ่อมงาน"
-                    className="btn-3d-core relative w-48 h-48 sm:w-56 sm:h-56 rounded-full flex flex-col items-center justify-center text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300"
+                    className="btn-3d-core relative w-44 h-44 sm:w-56 sm:h-56 rounded-full flex flex-col items-center justify-center text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300"
                   >
                     <span
                       aria-hidden="true"
                       className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 rounded-full bg-white/30 blur-[2px]"
                     />
 
-                    <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 border border-white/30 shadow-inner mb-2.5">
+                    <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 border border-white/30 shadow-inner mb-2 sm:mb-2.5">
                       <Wrench className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow" strokeWidth={2.2} />
                       <Zap
                         className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300 fill-amber-300 absolute -right-1 -bottom-1 drop-shadow"
@@ -437,7 +508,7 @@ export default function App() {
             </div>
 
             {/* Program Version displayed cleanly on Main Screen */}
-            <footer className="text-xs text-slate-400 font-mono-tabular">
+            <footer className="text-[11px] sm:text-xs text-slate-400 font-mono-tabular break-words">
               {APP_NAME} · {shopInfo.branchName} · เวอร์ชัน {APP_VERSION}
             </footer>
           </div>
