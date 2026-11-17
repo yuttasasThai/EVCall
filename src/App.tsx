@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActiveTicketStatus } from './components/ActiveTicketStatus';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthGateModal } from './components/AuthGateModal';
+import { BootScreen } from './components/BootScreen';
 import { RepairDetailsModal } from './components/RepairDetailsModal';
 import { VehicleSelectorModal } from './components/VehicleSelectorModal';
 import type { VehicleOption } from './constants/vehicles';
@@ -18,7 +19,7 @@ import { APP_NAME, APP_VERSION } from './constants/version';
 import { useRepairSocket } from './hooks/useRepairSocket';
 import type { CreateRepairPayload, RepairTicket } from './types/repair';
 import { playAlertChime, triggerChromeNotification } from './utils/notifications';
-import { setVoiceEnabled, speakThai, stopSpeaking } from './utils/voice';
+import { preloadVoices, setVoiceEnabled, speakThai, stopSpeaking } from './utils/voice';
 
 const ACTIVE_TICKET_STORAGE_KEY = 'ev_care_active_ticket_id';
 
@@ -50,8 +51,14 @@ export default function App() {
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleOption | null>(null);
   const [incomingAlert, setIncomingAlert] = useState<RepairTicket | null>(null);
   const [voiceOn, setVoiceOn] = useState<boolean>(true);
+  const [bootDone, setBootDone] = useState<boolean>(false);
 
   const arrivalVoiceCountRef = useRef(0);
+  const handleBootComplete = useCallback(() => setBootDone(true), []);
+
+  useEffect(() => {
+    preloadVoices();
+  }, []);
 
   const handleRepairCreated = useCallback(
     (repair: RepairTicket) => {
@@ -94,14 +101,16 @@ export default function App() {
     }
   }, [activeTicketId, branchCode, repairs.length, activeTicket]);
 
-  // 1.1 Arrival voice prompt: "กรุณากดปุ่ม เพื่อแจ้งซ่อม" (1-2 times max on customer home)
+  // 1.1 Arrival voice prompt after boot screen finishes: "กรุณากดปุ่ม เพื่อแจ้งซ่อม" (1-2 times max)
   useEffect(() => {
     if (
+      !bootDone ||
       viewMode !== 'customer' ||
       showStatusScreen ||
       vehicleModalOpen ||
       selectedVehicle ||
-      shopInfo.isExpired
+      shopInfo.isExpired ||
+      shopInfo.isNotFound
     ) {
       return;
     }
@@ -109,36 +118,71 @@ export default function App() {
       return;
     }
 
-    const speakArrival = () => {
-      if (arrivalVoiceCountRef.current >= 2) return;
-      const spoke = speakThai('กรุณากดปุ่ม เพื่อแจ้งซ่อม');
-      if (spoke) {
-        arrivalVoiceCountRef.current += 1;
-      }
-    };
+    let cancelled = false;
+    let reminderTimer: number | null = null;
+    let gestureAttached = false;
 
-    const t1 = window.setTimeout(speakArrival, 400);
-    const t2 = window.setTimeout(() => {
-      if (arrivalVoiceCountRef.current < 2) {
-        speakArrival();
+    const handleFirstGesture = (e: PointerEvent) => {
+      gestureAttached = false;
+      if (cancelled || arrivalVoiceCountRef.current >= 2) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('button[aria-label="แจ้งซ่อมงาน"]')) {
+        arrivalVoiceCountRef.current = 2;
+        return;
       }
-    }, 5200);
-
-    // Fallback on first user pointer interaction in case browser blocked pre-gesture speech
-    const handleFirstGesture = () => {
       if (arrivalVoiceCountRef.current === 0) {
         speakArrival();
       }
-      window.removeEventListener('pointerdown', handleFirstGesture);
     };
-    window.addEventListener('pointerdown', handleFirstGesture, { once: true });
+
+    const attachGestureFallback = () => {
+      if (gestureAttached || cancelled) return;
+      gestureAttached = true;
+      window.addEventListener('pointerdown', handleFirstGesture, { once: true });
+    };
+
+    const speakArrival = () => {
+      if (cancelled || arrivalVoiceCountRef.current >= 2) return;
+      speakThai('กรุณากดปุ่ม เพื่อแจ้งซ่อม', {
+        onStart: () => {
+          if (cancelled) return;
+          arrivalVoiceCountRef.current += 1;
+          if (arrivalVoiceCountRef.current === 1 && reminderTimer === null) {
+            reminderTimer = window.setTimeout(() => {
+              if (!cancelled && arrivalVoiceCountRef.current < 2) {
+                speakArrival();
+              }
+            }, 5200);
+          }
+        },
+        onBlocked: () => {
+          if (cancelled) return;
+          attachGestureFallback();
+        },
+      });
+    };
+
+    const initialTimer = window.setTimeout(speakArrival, 80);
 
     return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.removeEventListener('pointerdown', handleFirstGesture);
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      if (reminderTimer !== null) {
+        window.clearTimeout(reminderTimer);
+      }
+      if (gestureAttached) {
+        window.removeEventListener('pointerdown', handleFirstGesture);
+      }
     };
-  }, [viewMode, showStatusScreen, vehicleModalOpen, selectedVehicle, shopInfo.isExpired]);
+  }, [
+    bootDone,
+    viewMode,
+    showStatusScreen,
+    vehicleModalOpen,
+    selectedVehicle,
+    shopInfo.isExpired,
+    shopInfo.isNotFound,
+  ]);
 
   const handleToggleVoice = () => {
     const next = !voiceOn;
@@ -192,8 +236,8 @@ export default function App() {
     }
   };
 
-  // Expired / Invalid Branch Screen
-  if (isBranchMode && (shopInfo.isExpired || shopInfo.isNotFound)) {
+  // Expired / Invalid Branch Screen (after boot animation completes)
+  if (bootDone && isBranchMode && (shopInfo.isExpired || shopInfo.isNotFound)) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#F6F8FB] px-6 text-center">
         <div className="max-w-md w-full bg-white rounded-3xl border border-rose-200 shadow-lg p-7 space-y-4">
@@ -216,6 +260,9 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-[#F6F8FB] text-slate-900">
+      <AnimatePresence>
+        {!bootDone && <BootScreen onComplete={handleBootComplete} />}
+      </AnimatePresence>
       {/* Clean Single-Row Header */}
       <header className="sticky top-0 z-30 h-14 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-6 flex items-center justify-between gap-2">
         <button
