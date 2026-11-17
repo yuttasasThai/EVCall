@@ -417,7 +417,7 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
                   type="datetime-local"
                   value={customExpiresAt}
                   onChange={(e) => setCustomExpiresAt(e.target.value)}
-                  className="h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm font-mono-tabular text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full sm:w-auto max-w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm font-mono-tabular text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             )}
@@ -511,13 +511,13 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
         {/* Mobile Compact Excel View */}
         {compactMobile && (
           <div className="sm:hidden overflow-x-auto">
-            <table className="w-full border-collapse text-[11px] leading-tight">
+            <table className="w-full table-fixed border-collapse text-[11px] leading-tight">
               <thead>
                 <tr className="bg-slate-200 text-slate-600 font-mono-tabular text-[10px]">
                   <th className="border border-slate-300 px-1 py-1 w-6">#</th>
-                  <th className="border border-slate-300 px-1.5 py-1">A · สาขา/รหัส</th>
-                  <th className="border border-slate-300 px-1.5 py-1">B · User/Pass</th>
-                  <th className="border border-slate-300 px-1.5 py-1">C · หมดอายุ/ต่ออายุ</th>
+                  <th className="border border-slate-300 px-1 py-1 w-[34%]">A · สาขา/รหัส</th>
+                  <th className="border border-slate-300 px-1 py-1 w-[31%]">B · User/Pass</th>
+                  <th className="border border-slate-300 px-1 py-1 w-[35%]">C · หมดอายุ/ต่ออายุ</th>
                 </tr>
               </thead>
               <tbody>
@@ -538,34 +538,34 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
                     const rem = getRemainingLabel(b);
                     return (
                       <tr key={b.id} className="align-top">
-                        <td className="border border-slate-300 bg-slate-100 text-center py-2 px-1 font-mono-tabular">
+                        <td className="border border-slate-300 bg-slate-100 text-center py-2 px-0.5 font-mono-tabular">
                           {idx + 1}
                         </td>
-                        <td className="border border-slate-300 p-1.5">
-                          <div className="font-bold text-slate-900">{b.branchName}</div>
-                          <div className="font-mono-tabular text-[10px] text-slate-500">{b.code}</div>
+                        <td className="border border-slate-300 p-1.5 min-w-0 break-words">
+                          <div className="font-bold text-slate-900 break-words">{b.branchName}</div>
+                          <div className="font-mono-tabular text-[10px] text-slate-500 break-all">{b.code}</div>
                           <button
                             type="button"
                             onClick={() => void handleCopyUrl(b)}
-                            className="mt-1 inline-flex items-center gap-1 px-2 py-1 rounded bg-sky-50 text-sky-700 border border-sky-200 font-semibold"
+                            className="mt-1 inline-flex items-center gap-1 px-1.5 py-1 rounded bg-sky-50 text-sky-700 border border-sky-200 font-semibold text-[10px] max-w-full"
                           >
                             {copiedId === b.id ? (
                               <>
-                                <Check className="w-3 h-3" /> คัดลอกแล้ว
+                                <Check className="w-3 h-3 shrink-0" /> คัดลอกแล้ว
                               </>
                             ) : (
                               <>
-                                <Copy className="w-3 h-3" /> คัดลอกลิงก์
+                                <Copy className="w-3 h-3 shrink-0" /> คัดลอกลิงก์
                               </>
                             )}
                           </button>
                         </td>
-                        <td className="border border-slate-300 p-1.5 font-mono-tabular">
+                        <td className="border border-slate-300 p-1.5 font-mono-tabular min-w-0 break-all">
                           <div className="text-slate-900">U: {b.username}</div>
                           <div className="text-slate-700">P: {b.password}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{b.technicianName}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 break-words">{b.technicianName}</div>
                         </td>
-                        <td className="border border-slate-300 p-1.5 space-y-1">
+                        <td className="border border-slate-300 p-1.5 space-y-1 min-w-0">
                           <div
                             className={`font-semibold ${
                               rem.expired ? 'text-rose-600' : 'text-emerald-700'

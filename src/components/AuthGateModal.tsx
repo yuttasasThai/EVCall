@@ -76,10 +76,10 @@ export function AuthGateModal({
         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-sm bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center text-white ${
+              className={`w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0 ${
                 mode === 'admin' ? 'bg-slate-900' : 'bg-sky-600'
               }`}
             >
@@ -89,8 +89,8 @@ export function AuthGateModal({
                 <Wrench className="w-4 h-4" />
               )}
             </div>
-            <div>
-              <h2 id="auth-modal-title" className="text-base font-bold text-slate-900">
+            <div className="min-w-0">
+              <h2 id="auth-modal-title" className="text-base font-bold text-slate-900 truncate">
                 {mode === 'admin' ? 'เข้าสู่ระบบ Admin' : `เข้าสู่ระบบช่าง · ${branchName}`}
               </h2>
               <p className="text-xs text-slate-500">
@@ -107,7 +107,7 @@ export function AuthGateModal({
             type="button"
             onClick={onClose}
             aria-label="ปิดหน้าต่าง"
-            className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

@@ -235,17 +235,17 @@ export function RepairDetailsModal({
           </div>
 
           {/* Pin Location Section */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-2.5 sm:p-3 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-sky-600" />
+                <MapPin className="w-4 h-4 text-sky-600 shrink-0" />
                 ปักหมุดตำแหน่ง
               </span>
               <button
                 type="button"
                 onClick={handleGetCurrentGps}
                 disabled={locating}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg bg-sky-600 text-white text-xs font-medium hover:bg-sky-700 active:scale-95 transition-all disabled:opacity-60 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg bg-sky-600 text-white text-[11px] sm:text-xs font-medium hover:bg-sky-700 active:scale-95 transition-all disabled:opacity-60 whitespace-nowrap"
               >
                 {locating ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -267,7 +267,7 @@ export function RepairDetailsModal({
                   handleGetCurrentGps();
                 }
               }}
-              className="relative h-28 w-full rounded-xl border border-slate-200 bg-white overflow-hidden cursor-crosshair select-none"
+              className="relative h-24 sm:h-28 w-full rounded-xl border border-slate-200 bg-white overflow-hidden cursor-crosshair select-none"
               style={{
                 backgroundImage:
                   'linear-gradient(to right, rgba(14,165,233,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(14,165,233,0.08) 1px, transparent 1px)',
@@ -300,19 +300,19 @@ export function RepairDetailsModal({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <input
                 type="text"
                 value={addressNote}
                 onChange={(e) => setAddressNote(e.target.value)}
                 placeholder="จุดสังเกต / บ้านเลขที่ / ซอย (ถ้ามี)"
-                className="flex-1 h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
               <a
                 href={`https://maps.google.com/?q=${lat},${lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-10 px-3 inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white text-xs font-medium text-sky-700 hover:bg-sky-50 shrink-0"
+                className="h-10 px-2.5 sm:px-3 inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white text-xs font-medium text-sky-700 hover:bg-sky-50 shrink-0 whitespace-nowrap"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 ดูแผนที่
@@ -333,7 +333,7 @@ export function RepairDetailsModal({
               disabled={isSubmitting}
               aria-busy={isSubmitting}
               aria-label={isSubmitting ? 'กำลังส่งข้อมูลแจ้งซ่อม' : 'แจ้งซ่อม'}
-              className={`btn-electric-submit relative w-28 h-28 rounded-full flex flex-col items-center justify-center p-1.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400 transition-opacity ${
+              className={`btn-electric-submit relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center p-1.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400 transition-opacity ${
                 isSubmitting ? 'opacity-75 cursor-not-allowed pointer-events-none' : ''
               }`}
             >

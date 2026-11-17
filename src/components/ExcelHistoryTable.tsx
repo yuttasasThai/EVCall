@@ -115,15 +115,15 @@ export function ExcelHistoryTable({
       {/* Mobile Compact Fit View vs Full Excel Grid */}
       {compactMobile && (
         <div className="sm:hidden overflow-x-auto">
-          <table className="w-full border-collapse text-[11px] leading-tight">
+          <table className="w-full table-fixed border-collapse text-[11px] leading-tight">
             <thead>
               <tr className="bg-slate-200 text-slate-600 font-mono-tabular text-[10px]">
                 <th className="border border-slate-300 px-1 py-1 w-6 text-center bg-slate-200">#</th>
-                <th className="border border-slate-300 px-1.5 py-1 text-center">A · ลูกค้า/โทร</th>
-                <th className="border border-slate-300 px-1.5 py-1 text-center">B · รถ/อาการ</th>
-                <th className="border border-slate-300 px-1.5 py-1 text-center">C · สถานะ/หมุด</th>
+                <th className="border border-slate-300 px-1 py-1 text-center w-[33%]">A · ลูกค้า/โทร</th>
+                <th className="border border-slate-300 px-1 py-1 text-center w-[35%]">B · รถ/อาการ</th>
+                <th className="border border-slate-300 px-1 py-1 text-center w-[32%]">C · สถานะ/หมุด</th>
               </tr>
-              <tr className="bg-emerald-50 text-slate-800 font-semibold">
+              <tr className="bg-emerald-50 text-slate-800 font-semibold text-[10px]">
                 <th className="border border-slate-300 px-1 py-1.5 text-center bg-slate-100" />
                 <th className="border border-slate-300 px-1.5 py-1.5 text-left">ชื่อ · เบอร์ · เวลา</th>
                 <th className="border border-slate-300 px-1.5 py-1.5 text-left">ชนิดรถ · อาการ</th>
@@ -140,33 +140,33 @@ export function ExcelHistoryTable({
               ) : (
                 filteredRepairs.map((item, idx) => (
                   <tr key={item.id} className="hover:bg-emerald-50/40 align-top">
-                    <td className="border border-slate-300 bg-slate-100 text-slate-500 font-mono-tabular text-center py-2 px-1">
+                    <td className="border border-slate-300 bg-slate-100 text-slate-500 font-mono-tabular text-center py-2 px-0.5">
                       {idx + 1}
                     </td>
-                    <td className="border border-slate-300 p-1.5 min-w-[106px]">
-                      <div className="font-semibold text-slate-900 truncate max-w-[104px]">
+                    <td className="border border-slate-300 p-1.5 min-w-0 break-words">
+                      <div className="font-semibold text-slate-900 truncate">
                         {item.customerName}
                       </div>
                       <a
                         href={`tel:${item.phone}`}
-                        className="font-mono-tabular text-sky-700 underline block mt-0.5"
+                        className="font-mono-tabular text-sky-700 underline block mt-0.5 break-all"
                       >
                         {item.phone}
                       </a>
-                      <div className="font-mono-tabular text-[10px] text-slate-400 mt-0.5">
+                      <div className="font-mono-tabular text-[9.5px] text-slate-400 mt-0.5 break-words">
                         {formatThaiDateTime(item.createdAt)}
                       </div>
                     </td>
-                    <td className="border border-slate-300 p-1.5 min-w-[110px]">
-                      <div className="font-medium text-slate-800">{item.vehicleLabel}</div>
-                      <div className="text-slate-600 line-clamp-2 mt-0.5">{item.issue}</div>
+                    <td className="border border-slate-300 p-1.5 min-w-0 break-words">
+                      <div className="font-medium text-slate-800 break-words">{item.vehicleLabel}</div>
+                      <div className="text-slate-600 line-clamp-2 mt-0.5 break-words">{item.issue}</div>
                       {item.estimatedCost && (
                         <div className="font-mono-tabular text-emerald-700 font-medium mt-0.5">
                           {item.estimatedCost} ฿
                         </div>
                       )}
                     </td>
-                    <td className="border border-slate-300 p-1.5 min-w-[108px]">
+                    <td className="border border-slate-300 p-1.5 min-w-0">
                       <select
                         value={item.status}
                         onChange={(e) => void onChangeStatus(item.id, e.target.value as RepairStatus)}

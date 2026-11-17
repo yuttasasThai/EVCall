@@ -83,7 +83,7 @@ export function Status3DIcon({
     size === 'lg'
       ? 'w-20 h-20 sm:w-24 sm:h-24'
       : size === 'sm'
-        ? 'w-11 h-11'
+        ? 'w-10 h-10 sm:w-11 sm:h-11'
         : 'w-12 h-12 sm:w-14 sm:h-14';
 
   const iconClass =
@@ -125,12 +125,12 @@ export function Status3DIcon({
         onClick={onClick}
         aria-label={label || status}
         aria-pressed={active}
-        className="group flex flex-col items-center gap-1.5 min-w-[44px] min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-xl p-1"
+        className="group min-w-0 w-full flex flex-col items-center gap-1.5 min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-xl p-0.5 sm:p-1"
       >
         {innerContent}
         {label && (
           <span
-            className={`text-[11px] leading-tight text-center whitespace-nowrap ${
+            className={`text-[10px] sm:text-[11px] leading-tight text-center break-words w-full ${
               active ? 'font-semibold text-slate-900' : 'font-medium text-slate-500 group-hover:text-slate-800'
             }`}
           >
@@ -142,11 +142,11 @@ export function Status3DIcon({
   }
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="min-w-0 flex flex-col items-center gap-1.5">
       {innerContent}
       {label && (
         <span
-          className={`text-[11px] leading-tight text-center ${
+          className={`text-[10px] sm:text-[11px] leading-tight text-center break-words w-full ${
             active ? 'font-semibold text-slate-900' : completed ? 'font-medium text-slate-700' : 'text-slate-400'
           }`}
         >

@@ -28,9 +28,9 @@ export function ActiveTicketStatus({
   const cleanTechPhone = shopInfo.technicianPhone.replace(/[^\d+]/g, '');
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-5">
+    <div className="w-full max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
       {/* Live Status Hero Card */}
-      <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-7">
+      <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-7">
         <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">

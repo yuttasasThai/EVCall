@@ -1,8 +1,8 @@
-import { Zap } from 'lucide-react';
+import { Volume2, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { APP_NAME, APP_VERSION } from '../constants/version';
-import { preloadVoices } from '../utils/voice';
+import { preloadVoices, unlockSpeechAudio } from '../utils/voice';
 
 interface BootScreenProps {
   onComplete: () => void;
@@ -15,6 +15,8 @@ const HOLD_AFTER_TYPING_MS = 950;
 export function BootScreen({ onComplete }: BootScreenProps) {
   const [typedCount, setTypedCount] = useState(0);
   const [exiting, setExiting] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     preloadVoices();
@@ -29,30 +31,31 @@ export function BootScreen({ onComplete }: BootScreenProps) {
       return () => window.clearTimeout(t);
     }
 
+    let fadeTimer = 0;
     const doneTimer = window.setTimeout(() => {
       setExiting(true);
-      window.setTimeout(onComplete, 220);
+      fadeTimer = window.setTimeout(() => {
+        if (!completedRef.current) {
+          completedRef.current = true;
+          onComplete();
+        }
+      }, 220);
     }, HOLD_AFTER_TYPING_MS);
 
-    return () => window.clearTimeout(doneTimer);
+    return () => {
+      window.clearTimeout(doneTimer);
+      if (fadeTimer) window.clearTimeout(fadeTimer);
+    };
   }, [typedCount, onComplete]);
 
   const chars = Array.from(CREDIT_TEXT);
   const visibleText = chars.slice(0, typedCount).join('');
   const progressPct = Math.round((typedCount / chars.length) * 100);
 
-  // Tapping the boot screen unlocks Chrome Web Speech audio early
+  // Tapping anywhere on the boot screen unlocks Chrome Web Speech audio early
   const handleWarmAudio = () => {
-    preloadVoices();
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        const silent = new SpeechSynthesisUtterance('');
-        silent.volume = 0;
-        window.speechSynthesis.speak(silent);
-      } catch {
-        // ignore
-      }
-    }
+    unlockSpeechAudio();
+    setAudioUnlocked(true);
   };
 
   return (
@@ -60,8 +63,9 @@ export function BootScreen({ onComplete }: BootScreenProps) {
       initial={{ opacity: 1 }}
       animate={{ opacity: exiting ? 0 : 1 }}
       transition={{ duration: 0.22 }}
+      onClick={handleWarmAudio}
       onPointerDown={handleWarmAudio}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F6F8FB] px-6 text-center select-none"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F6F8FB] px-5 text-center select-none cursor-pointer"
     >
       <div className="w-full max-w-sm flex flex-col items-center">
         {/* 3D Electric Emblem */}
@@ -80,7 +84,7 @@ export function BootScreen({ onComplete }: BootScreenProps) {
         <p className="text-xs text-slate-500 mt-1">ระบบแจ้งซ่อมรถไฟฟ้าออนไลน์</p>
 
         {/* Typewriter Text */}
-        <div className="mt-7 min-h-[36px] flex items-center justify-center">
+        <div className="mt-7 min-h-[36px] flex items-center justify-center px-2">
           <p className="text-base sm:text-lg font-semibold text-sky-700 tracking-wide">
             {visibleText}
             <span
@@ -101,6 +105,11 @@ export function BootScreen({ onComplete }: BootScreenProps) {
         <p className="mt-4 text-[11px] font-mono-tabular text-slate-400">
           กำลังเตรียมระบบ · {APP_VERSION}
         </p>
+
+        <span className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-sky-700/80 font-medium">
+          <Volume2 className="w-3.5 h-3.5" />
+          {audioUnlocked ? 'เปิดเสียงแนะนำพร้อมใช้งานแล้ว' : 'แตะหน้าจอระหว่างโหลดเพื่อเปิดเสียงอัตโนมัติ'}
+        </span>
       </div>
     </motion.div>
   );

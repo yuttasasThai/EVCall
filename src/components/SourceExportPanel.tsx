@@ -88,7 +88,7 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `ev-care-v${inventory?.version || '1.4.0'}-source.zip`;
+      link.download = `ev-care-v${inventory?.version || '1.4.3'}-source.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -240,13 +240,13 @@ export function SourceExportPanel({ adminToken }: SourceExportPanelProps) {
             <table className="w-full border-collapse text-xs">
               <thead className="bg-slate-100 text-slate-600 sticky top-0">
                 <tr>
-                  <th className="py-2 px-3 text-left font-semibold border-b border-slate-200">
+                  <th className="py-2 px-2.5 sm:px-3 text-left font-semibold border-b border-slate-200">
                     เส้นทางไฟล์ (Path)
                   </th>
-                  <th className="py-2 px-3 text-right font-semibold border-b border-slate-200 w-24">
+                  <th className="py-2 px-2 sm:px-3 text-right font-semibold border-b border-slate-200 w-16 sm:w-24">
                     ขนาด
                   </th>
-                  <th className="py-2 px-3 text-center font-semibold border-b border-slate-200 w-24">
+                  <th className="py-2 px-2 sm:px-3 text-center font-semibold border-b border-slate-200 w-16 sm:w-24">
                     โหลดแยก
                   </th>
                 </tr>

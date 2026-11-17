@@ -439,9 +439,9 @@ export function AdminDashboard({
                         setNoteDrafts((prev) => ({ ...prev, [ticket.id]: e.target.value }))
                       }
                       placeholder="บันทึกอาการจริง / ข้อความถึงลูกค้า..."
-                      className="flex-1 h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <input
                         type="text"
                         inputMode="numeric"
@@ -450,7 +450,7 @@ export function AdminDashboard({
                           setCostDrafts((prev) => ({ ...prev, [ticket.id]: e.target.value }))
                         }
                         placeholder="ค่าซ่อม (บาท)"
-                        className="w-28 h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm font-mono-tabular text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        className="flex-1 min-w-0 sm:flex-none sm:w-28 h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm font-mono-tabular text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                       />
                       <button
                         type="button"
