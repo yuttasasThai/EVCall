@@ -7,6 +7,15 @@ import type {
   ServerWsEvent,
   UpdateRepairPayload,
 } from '../types/repair';
+import {
+  apiCreateRepair,
+  apiDeleteRepair,
+  apiGetShopInfo,
+  apiListRepairs,
+  apiUpdateRepair,
+  isExpressServerAvailable,
+  subscribeLocalSync,
+} from '../utils/apiClient';
 
 interface UseRepairSocketOptions {
   branchCode: string;
@@ -54,28 +63,14 @@ export function useRepairSocket(options: UseRepairSocketOptions) {
   }, []);
 
   const fetchShopInfo = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/shop-info?branch=${encodeURIComponent(branchCode)}`);
-      if (!res.ok) return;
-      const data = (await res.json()) as { shop?: PublicShopInfo };
-      if (data.shop) {
-        setShopInfo(data.shop);
-      }
-    } catch {
-      // Ignore network errors
-    }
+    const info = await apiGetShopInfo(branchCode);
+    setShopInfo(info);
   }, [branchCode]);
 
   const fetchRepairs = useCallback(async () => {
     try {
-      const res = await fetch('/api/repairs');
-      if (!res.ok) return;
-      const data = (await res.json()) as { repairs?: RepairTicket[] };
-      if (Array.isArray(data.repairs)) {
-        setRepairs(data.repairs);
-      }
-    } catch {
-      // Keep existing state if offline
+      const list = await apiListRepairs();
+      setRepairs(list);
     } finally {
       setIsLoading(false);
     }
@@ -89,77 +84,121 @@ export function useRepairSocket(options: UseRepairSocketOptions) {
     void fetchShopInfo();
     void fetchRepairs();
 
-    const connect = () => {
+    const unsubLocal = subscribeLocalSync((msg) => {
       if (disposed) return;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        if (!disposed) {
-          setIsConnected(true);
+      if (msg.type === 'repair:created') {
+        setRepairs((prev) => {
+          if (prev.some((r) => r.id === msg.repair.id)) return prev;
+          return [msg.repair, ...prev];
+        });
+        onCreatedRef.current?.(msg.repair);
+      } else if (msg.type === 'repair:updated') {
+        upsertRepair(msg.repair);
+        onUpdatedRef.current?.(msg.repair);
+      } else if (msg.type === 'repair:deleted') {
+        setRepairs((prev) => prev.filter((r) => r.id !== msg.id));
+      } else if (msg.type === 'shop:updated') {
+        if (msg.branchCode === branchCode) {
+          setShopInfo((prev) => ({
+            ...prev,
+            technicianName: msg.technicianName,
+            technicianPhone: msg.technicianPhone,
+          }));
         }
-      };
+      } else if (msg.type === 'branch:updated') {
+        if (msg.branch.code === branchCode) {
+          void fetchShopInfo();
+        }
+        onBranchUpdatedRef.current?.(msg.branch);
+      } else if (msg.type === 'branch:deleted') {
+        if (branchCode !== 'main') {
+          void fetchShopInfo();
+        }
+        onBranchDeletedRef.current?.(msg.id);
+      }
+    });
 
-      ws.onmessage = (event) => {
+    const initRealtime = async () => {
+      const hasExpress = await isExpressServerAvailable();
+      if (disposed) return;
+
+      if (!hasExpress) {
+        // Static Vercel / browser-persistent mode
+        setIsConnected(true);
+        return;
+      }
+
+      const connect = () => {
         if (disposed) return;
-        try {
-          const data = JSON.parse(event.data) as ServerWsEvent;
-          if (data.type === 'init') {
-            setRepairs(data.repairs);
-            setIsLoading(false);
-          } else if (data.type === 'repair:created') {
-            setRepairs((prev) => {
-              if (prev.some((r) => r.id === data.repair.id)) {
-                return prev;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          if (!disposed) setIsConnected(true);
+        };
+
+        ws.onmessage = (event) => {
+          if (disposed) return;
+          try {
+            const data = JSON.parse(event.data) as ServerWsEvent;
+            if (data.type === 'init') {
+              setRepairs(data.repairs);
+              setIsLoading(false);
+            } else if (data.type === 'repair:created') {
+              setRepairs((prev) => {
+                if (prev.some((r) => r.id === data.repair.id)) return prev;
+                return [data.repair, ...prev];
+              });
+              onCreatedRef.current?.(data.repair);
+            } else if (data.type === 'repair:updated') {
+              upsertRepair(data.repair);
+              onUpdatedRef.current?.(data.repair);
+            } else if (data.type === 'repair:deleted') {
+              setRepairs((prev) => prev.filter((r) => r.id !== data.id));
+            } else if (data.type === 'shop:updated') {
+              if (data.branchCode === branchCode) {
+                setShopInfo((prev) => ({
+                  ...prev,
+                  technicianName: data.technicianName,
+                  technicianPhone: data.technicianPhone,
+                }));
               }
-              return [data.repair, ...prev];
-            });
-            onCreatedRef.current?.(data.repair);
-          } else if (data.type === 'repair:updated') {
-            upsertRepair(data.repair);
-            onUpdatedRef.current?.(data.repair);
-          } else if (data.type === 'repair:deleted') {
-            setRepairs((prev) => prev.filter((r) => r.id !== data.id));
-          } else if (data.type === 'shop:updated') {
-            if (data.branchCode === branchCode) {
-              setShopInfo((prev) => ({
-                ...prev,
-                technicianName: data.technicianName,
-                technicianPhone: data.technicianPhone,
-              }));
+            } else if (data.type === 'branch:updated') {
+              if (data.branch.code === branchCode) {
+                void fetchShopInfo();
+              }
+              onBranchUpdatedRef.current?.(data.branch);
+            } else if (data.type === 'branch:deleted') {
+              if (branchCode !== 'main') {
+                void fetchShopInfo();
+              }
+              onBranchDeletedRef.current?.(data.id);
             }
-          } else if (data.type === 'branch:updated') {
-            if (data.branch.code === branchCode) {
-              void fetchShopInfo();
-            }
-            onBranchUpdatedRef.current?.(data.branch);
-          } else if (data.type === 'branch:deleted') {
-            if (branchCode !== 'main') {
-              void fetchShopInfo();
-            }
-            onBranchDeletedRef.current?.(data.id);
+          } catch {
+            // Ignore malformed message
           }
-        } catch {
-          // Ignore malformed message
-        }
+        };
+
+        ws.onclose = () => {
+          if (disposed) return;
+          setIsConnected(false);
+          reconnectTimer = window.setTimeout(connect, 2500);
+        };
+
+        ws.onerror = () => {
+          ws?.close();
+        };
       };
 
-      ws.onclose = () => {
-        if (disposed) return;
-        setIsConnected(false);
-        reconnectTimer = window.setTimeout(connect, 2000);
-      };
-
-      ws.onerror = () => {
-        ws?.close();
-      };
+      connect();
     };
 
-    connect();
+    void initRealtime();
 
     return () => {
       disposed = true;
+      unsubLocal();
       if (reconnectTimer !== null) {
         window.clearTimeout(reconnectTimer);
       }
@@ -169,17 +208,9 @@ export function useRepairSocket(options: UseRepairSocketOptions) {
 
   const createRepair = useCallback(
     async (payload: CreateRepairPayload): Promise<RepairTicket> => {
-      const res = await fetch('/api/repairs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, branchCode }),
-      });
-      const data = (await res.json()) as { repair?: RepairTicket; error?: string };
-      if (!res.ok || !data.repair) {
-        throw new Error(data.error || 'ไม่สามารถส่งข้อมูลแจ้งซ่อมได้');
-      }
-      upsertRepair(data.repair);
-      return data.repair;
+      const created = await apiCreateRepair(payload, branchCode);
+      upsertRepair(created);
+      return created;
     },
     [branchCode, upsertRepair],
   );
@@ -190,33 +221,16 @@ export function useRepairSocket(options: UseRepairSocketOptions) {
       payload: UpdateRepairPayload,
       authHeaders: Record<string, string> = {},
     ): Promise<RepairTicket> => {
-      const res = await fetch(`/api/repairs/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders,
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = (await res.json()) as { repair?: RepairTicket; error?: string };
-      if (!res.ok || !data.repair) {
-        throw new Error(data.error || 'ไม่สามารถอัปเดตสถานะงานซ่อมได้');
-      }
-      upsertRepair(data.repair);
-      return data.repair;
+      const updated = await apiUpdateRepair(id, payload, authHeaders);
+      upsertRepair(updated);
+      return updated;
     },
     [upsertRepair],
   );
 
   const deleteRepair = useCallback(
     async (id: string, authHeaders: Record<string, string> = {}): Promise<void> => {
-      const res = await fetch(`/api/repairs/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: authHeaders,
-      });
-      if (!res.ok) {
-        throw new Error('ไม่สามารถลบรายการได้');
-      }
+      await apiDeleteRepair(id, authHeaders);
       setRepairs((prev) => prev.filter((r) => r.id !== id));
     },
     [],
