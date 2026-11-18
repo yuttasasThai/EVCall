@@ -1,5 +1,6 @@
 import { Check, Clock, Navigation, UserCheck, Wrench } from 'lucide-react';
 import type { RepairStatus } from '../types/repair';
+import { RippleLayer, useInkRipple } from './InkRipple';
 
 interface Status3DIconProps {
   status: RepairStatus;
@@ -76,6 +77,7 @@ export function Status3DIcon({
   onClick,
   label,
 }: Status3DIconProps) {
+  const { ripples, isPressed, triggerRipple, releaseRipple } = useInkRipple();
   const style = STATUS_STYLES[status];
   const isLit = active || completed;
 
@@ -102,10 +104,10 @@ export function Status3DIcon({
 
   const innerContent = (
     <span
-      className={`relative flex items-center justify-center rounded-full select-none transition-transform duration-150 ${sizeClass} ${
+      className={`status-orb-3d relative overflow-hidden flex items-center justify-center rounded-full select-none ${sizeClass} ${
         isLit ? style.rim : 'text-slate-500'
       } ${active ? `ring-4 ${style.ring} ring-offset-2 ring-offset-white` : ''} ${
-        interactive ? 'cursor-pointer hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95' : ''
+        interactive ? 'cursor-pointer hover:-translate-y-0.5' : ''
       }`}
       style={sphereStyle}
     >
@@ -115,6 +117,7 @@ export function Status3DIcon({
         className="pointer-events-none absolute top-1 left-1/4 right-1/4 h-1.5 rounded-full bg-white/45 blur-[0.5px]"
       />
       {renderGlyph(status, iconClass)}
+      {interactive && <RippleLayer ripples={ripples} tone={isLit ? 'light' : 'brand'} />}
     </span>
   );
 
@@ -122,6 +125,11 @@ export function Status3DIcon({
     return (
       <button
         type="button"
+        data-pressed={isPressed ? 'true' : undefined}
+        onPointerDown={triggerRipple}
+        onPointerUp={releaseRipple}
+        onPointerLeave={releaseRipple}
+        onPointerCancel={releaseRipple}
         onClick={onClick}
         aria-label={label || status}
         aria-pressed={active}

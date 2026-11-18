@@ -2,6 +2,7 @@ import { ExternalLink, MapPin, Phone, PhoneCall, PlusCircle, User } from 'lucide
 import { VEHICLE_OPTIONS } from '../constants/vehicles';
 import { REPAIR_STATUS_STEPS, type PublicShopInfo, type RepairTicket } from '../types/repair';
 import { formatThaiDateTime } from '../utils/notifications';
+import { RippleButton } from './InkRipple';
 import { Status3DIcon } from './Status3DIcon';
 
 interface ActiveTicketStatusProps {
@@ -184,21 +185,20 @@ export function ActiveTicketStatus({
       </section>
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pb-6">
-        <button
-          type="button"
+        <RippleButton
+          rippleTone="light"
           onClick={onNewRequest}
           className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700 active:scale-[0.98] transition-all inline-flex items-center justify-center gap-2"
         >
           <PlusCircle className="w-4 h-4" />
           แจ้งซ่อมรถคันอื่นเพิ่มเติม
-        </button>
-        <button
-          type="button"
+        </RippleButton>
+        <RippleButton
           onClick={onBackHome}
           className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
         >
           กลับหน้าปุ่มแจ้งซ่อมหลัก
-        </button>
+        </RippleButton>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { QUICK_ISSUES, type VehicleOption } from '../constants/vehicles';
 import type { CreateRepairPayload } from '../types/repair';
+import { RippleButton, RippleLayer, useInkRipple } from './InkRipple';
 
 interface RepairDetailsModalProps {
   vehicle: VehicleOption;
@@ -34,6 +35,12 @@ export function RepairDetailsModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
   const submitLockRef = useRef(false);
+  const {
+    ripples: submitRipples,
+    isPressed: submitPressed,
+    triggerRipple: triggerSubmitRipple,
+    releaseRipple: releaseSubmitRipple,
+  } = useInkRipple();
 
   const handleGetCurrentGps = () => {
     if (!navigator.geolocation) {
@@ -136,15 +143,14 @@ export function RepairDetailsModal({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              type="button"
+            <RippleButton
               onClick={onBack}
               disabled={isSubmitting}
               aria-label="กลับไปเลือกรถ"
               className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-            </button>
+            </RippleButton>
             <img
               src={vehicle.imageUrl}
               alt={vehicle.label}
@@ -159,15 +165,14 @@ export function RepairDetailsModal({
             </div>
           </div>
 
-          <button
-            type="button"
+          <RippleButton
             onClick={onClose}
             disabled={isSubmitting}
             aria-label="ปิดหน้าต่าง"
             className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
-          </button>
+          </RippleButton>
         </div>
 
         {/* Scrollable Form */}
@@ -220,16 +225,15 @@ export function RepairDetailsModal({
             />
             <div className="flex flex-wrap gap-1.5 mt-2">
               {QUICK_ISSUES.map((preset) => (
-                <button
+                <RippleButton
                   key={preset}
-                  type="button"
                   onClick={() =>
                     setIssue((prev) => (prev.trim() ? `${prev.trim()}, ${preset}` : preset))
                   }
                   className="px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:border-sky-300 hover:bg-sky-50 active:scale-95 transition-all"
                 >
                   + {preset}
-                </button>
+                </RippleButton>
               ))}
             </div>
           </div>
@@ -241,8 +245,8 @@ export function RepairDetailsModal({
                 <MapPin className="w-4 h-4 text-sky-600 shrink-0" />
                 ปักหมุดตำแหน่ง
               </span>
-              <button
-                type="button"
+              <RippleButton
+                rippleTone="light"
                 onClick={handleGetCurrentGps}
                 disabled={locating}
                 className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg bg-sky-600 text-white text-[11px] sm:text-xs font-medium hover:bg-sky-700 active:scale-95 transition-all disabled:opacity-60 whitespace-nowrap"
@@ -253,7 +257,7 @@ export function RepairDetailsModal({
                   <Crosshair className="w-3.5 h-3.5" />
                 )}
                 ดึงพิกัด GPS ปัจจุบัน
-              </button>
+              </RippleButton>
             </div>
 
             {/* Interactive Map Pin Canvas */}
@@ -333,10 +337,18 @@ export function RepairDetailsModal({
               disabled={isSubmitting}
               aria-busy={isSubmitting}
               aria-label={isSubmitting ? 'กำลังส่งข้อมูลแจ้งซ่อม' : 'แจ้งซ่อม'}
-              className={`btn-electric-submit relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center p-1.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400 transition-opacity ${
+              data-pressed={submitPressed && !isSubmitting ? 'true' : undefined}
+              onPointerDown={(e) => {
+                if (!isSubmitting) triggerSubmitRipple(e);
+              }}
+              onPointerUp={releaseSubmitRipple}
+              onPointerLeave={releaseSubmitRipple}
+              onPointerCancel={releaseSubmitRipple}
+              className={`btn-electric-submit relative overflow-hidden w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center p-1.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400 transition-opacity ${
                 isSubmitting ? 'opacity-75 cursor-not-allowed pointer-events-none' : ''
               }`}
             >
+              <RippleLayer ripples={submitRipples} tone="light" />
               {/* Inner sculpted electric core */}
               <span className="w-full h-full rounded-full bg-gradient-to-br from-amber-300 via-yellow-400 to-sky-500 border-2 border-white/80 shadow-inner flex flex-col items-center justify-center px-2">
                 {isSubmitting ? (

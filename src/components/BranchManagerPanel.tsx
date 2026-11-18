@@ -23,6 +23,7 @@ import {
   apiUpdateBranch,
 } from '../utils/apiClient';
 import { exportBranchesToExcelCsv, formatThaiDateTime } from '../utils/notifications';
+import { RippleButton } from './InkRipple';
 
 interface BranchManagerPanelProps {
   adminToken: string;
@@ -386,9 +387,8 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
               {DURATION_PRESETS.map((opt) => {
                 const selected = preset === opt.id;
                 return (
-                  <button
+                  <RippleButton
                     key={opt.id}
-                    type="button"
                     onClick={() => handleSelectPreset(opt.id, opt.months)}
                     className={`min-h-[56px] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1 transition-all ${
                       selected
@@ -402,7 +402,7 @@ export function BranchManagerPanel({ adminToken }: BranchManagerPanelProps) {
                       <CalendarPlus className="w-4 h-4 text-sky-600" />
                     )}
                     <span className="text-xs font-semibold whitespace-nowrap">{opt.label}</span>
-                  </button>
+                  </RippleButton>
                 );
               })}
             </div>
