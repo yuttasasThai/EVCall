@@ -1,5 +1,7 @@
 import {
   AlertTriangle,
+  CheckCircle2,
+  Clock,
   ShieldCheck,
   Volume2,
   VolumeX,
@@ -12,6 +14,7 @@ import { ActiveTicketStatus } from './components/ActiveTicketStatus';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthGateModal } from './components/AuthGateModal';
 import { BootScreen } from './components/BootScreen';
+import { RippleButton, RippleLayer, useInkRipple } from './components/InkRipple';
 import { RepairDetailsModal } from './components/RepairDetailsModal';
 import { VehicleSelectorModal } from './components/VehicleSelectorModal';
 import type { VehicleOption } from './constants/vehicles';
@@ -61,6 +64,12 @@ export default function App() {
 
   const arrivalVoiceCountRef = useRef(0);
   const handleBootComplete = useCallback(() => setBootDone(true), []);
+  const {
+    ripples: mainBtnRipples,
+    isPressed: mainBtnPressed,
+    triggerRipple: triggerMainBtnRipple,
+    releaseRipple: releaseMainBtnRipple,
+  } = useInkRipple();
 
   useEffect(() => {
     preloadVoices();
@@ -98,6 +107,12 @@ export default function App() {
   });
 
   const activeTicket = repairs.find((r) => r.id === activeTicketId) ?? null;
+
+  const branchRepairs = repairs.filter((r) => (r.branchCode || 'main') === branchCode);
+  const inQueueRepairs = branchRepairs.filter((r) => r.status !== 'completed');
+  const inQueueCount = inQueueRepairs.length;
+  const waitingAcceptCount = inQueueRepairs.filter((r) => r.status === 'pending').length;
+  const activeRepairCount = inQueueCount - waitingAcceptCount;
 
   useEffect(() => {
     if (activeTicketId && repairs.length > 0 && !activeTicket) {
@@ -298,13 +313,12 @@ export default function App() {
       </AnimatePresence>
       {/* Clean Single-Row Header */}
       <header className="sticky top-0 z-30 h-14 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-2.5 sm:px-6 flex items-center justify-between gap-1.5 sm:gap-2">
-        <button
-          type="button"
+        <RippleButton
           onClick={() => {
             setViewMode('customer');
             setShowStatusScreen(false);
           }}
-          className="min-w-0 shrink-0 text-sm sm:text-lg font-bold tracking-tight text-slate-900 flex items-center gap-1.5 sm:gap-2"
+          className="min-w-0 shrink-0 rounded-lg px-1 py-1 text-sm sm:text-lg font-bold tracking-tight text-slate-900 flex items-center gap-1.5 sm:gap-2"
         >
           <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-sky-500 to-blue-700 text-white flex items-center justify-center shadow-sm shrink-0">
             <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-300 text-amber-300" />
@@ -312,21 +326,19 @@ export default function App() {
           <span className="truncate max-w-[96px] sm:max-w-none whitespace-nowrap">
             {isBranchMode ? shopInfo.branchName : APP_NAME}
           </span>
-        </button>
+        </RippleButton>
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {viewMode === 'customer' && activeTicket && !showStatusScreen && (
-            <button
-              type="button"
+            <RippleButton
               onClick={() => setShowStatusScreen(true)}
               className="px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-[11px] sm:text-xs font-semibold hover:bg-sky-100 transition-colors whitespace-nowrap"
             >
               สถานะ<span className="hidden sm:inline"> {activeTicket.code}</span>
-            </button>
+            </RippleButton>
           )}
 
-          <button
-            type="button"
+          <RippleButton
             data-voice-toggle="true"
             onClick={handleToggleVoice}
             aria-label={voiceOn ? 'ปิดเสียงพูด' : 'เปิดเสียงพูด'}
@@ -334,10 +346,10 @@ export default function App() {
             className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
           >
             {voiceOn ? <Volume2 className="w-4 h-4 text-sky-600" /> : <VolumeX className="w-4 h-4" />}
-          </button>
+          </RippleButton>
 
-          <button
-            type="button"
+          <RippleButton
+            rippleTone={viewMode === 'technician' ? 'light' : 'brand'}
             onClick={() => {
               if (viewMode === 'technician') {
                 setViewMode('customer');
@@ -353,12 +365,12 @@ export default function App() {
           >
             <Wrench className="w-3.5 h-3.5" />
             {viewMode === 'technician' ? 'หน้าลูกค้า' : 'สำหรับช่าง'}
-          </button>
+          </RippleButton>
 
           {/* Admin button is strictly hidden on Branch Links */}
           {!isBranchMode && (
-            <button
-              type="button"
+            <RippleButton
+              rippleTone={viewMode === 'admin' ? 'light' : 'brand'}
               onClick={() => {
                 if (viewMode === 'admin') {
                   setViewMode('customer');
@@ -374,7 +386,7 @@ export default function App() {
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               {viewMode === 'admin' ? 'หน้าลูกค้า' : 'Admin'}
-            </button>
+            </RippleButton>
           )}
         </div>
       </header>
@@ -428,22 +440,80 @@ export default function App() {
             onBackHome={() => setShowStatusScreen(false)}
           />
         ) : (
-          /* Customer Home: ONLY ONE 3D Circular Repair Button + Version Footer */
-          <div className="flex-1 flex flex-col items-center justify-between px-4 sm:px-6 py-5 sm:py-8 text-center">
-            <div />
+          /* Customer Home: Queue Status Bar + ONLY ONE 3D Circular Repair Button + Version Footer */
+          <div className="flex-1 flex flex-col items-center justify-between px-4 sm:px-6 py-4 sm:py-7 text-center">
+            {/* Real-time Queue Status Bar */}
+            <div
+              aria-live="polite"
+              className="w-full max-w-md rounded-2xl bg-white border border-slate-200/90 shadow-xs px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3 text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    isLoading
+                      ? 'bg-slate-100 text-slate-500'
+                      : inQueueCount === 0
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : inQueueCount >= 4
+                          ? 'bg-amber-50 text-amber-600'
+                          : 'bg-sky-50 text-sky-600'
+                  }`}
+                >
+                  {!isLoading && inQueueCount === 0 ? (
+                    <CheckCircle2 className="w-4.5 h-4.5" />
+                  ) : (
+                    <Clock className="w-4.5 h-4.5" />
+                  )}
+                </div>
 
-            <div className="flex flex-col items-center w-full max-w-lg">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-tight">
+                    จำนวนคิวในคิว
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
+                    {isLoading
+                      ? 'กำลังตรวจสอบคิวล่าสุด...'
+                      : inQueueCount === 0
+                        ? 'คิวว่าง · แจ้งซ่อมได้ทันที'
+                        : `รอรับงาน ${waitingAcceptCount} คัน · กำลังดำเนินการ ${activeRepairCount} คัน`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right shrink-0 pl-2 border-l border-slate-100">
+                <span
+                  className={`text-base sm:text-lg font-bold font-mono-tabular whitespace-nowrap ${
+                    isLoading
+                      ? 'text-slate-400'
+                      : inQueueCount === 0
+                        ? 'text-emerald-700'
+                        : inQueueCount >= 4
+                          ? 'text-amber-700'
+                          : 'text-sky-700'
+                  }`}
+                >
+                  {isLoading ? '...' : `${inQueueCount} คัน`}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center w-full max-w-lg my-3 sm:my-4">
               <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-tight text-balance">
                 แจ้งซ่อมรถไฟฟ้าออนไลน์
               </h1>
 
-              <div className="my-6 sm:my-9">
+              <div className="my-5 sm:my-8">
                 <div className="btn-3d-outer p-3 sm:p-4 rounded-full inline-flex items-center justify-center">
                   <button
                     type="button"
+                    data-pressed={mainBtnPressed ? 'true' : undefined}
+                    onPointerDown={triggerMainBtnRipple}
+                    onPointerUp={releaseMainBtnRipple}
+                    onPointerLeave={releaseMainBtnRipple}
+                    onPointerCancel={releaseMainBtnRipple}
                     onClick={handleOpenVehicleModal}
                     aria-label="แจ้งซ่อมงาน"
-                    className="btn-3d-core relative w-44 h-44 sm:w-56 sm:h-56 rounded-full flex flex-col items-center justify-center text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300"
+                    className="btn-3d-core relative overflow-hidden w-44 h-44 sm:w-56 sm:h-56 rounded-full flex flex-col items-center justify-center text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300"
                   >
                     <span
                       aria-hidden="true"
@@ -464,6 +534,8 @@ export default function App() {
                     <span className="text-[11px] sm:text-xs text-sky-100 font-medium mt-0.5">
                       แตะเพื่อเริ่มต้น
                     </span>
+
+                    <RippleLayer ripples={mainBtnRipples} tone="light" />
                   </button>
                 </div>
               </div>
