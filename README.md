@@ -1,4 +1,4 @@
-# EV Care - โปรแกรมแจ้งซ่อมรถไฟฟ้าออนไลน์ (v1.4.4)
+# EV Care - โปรแกรมแจ้งซ่อมรถไฟฟ้าออนไลน์ (v1.4.7)
 
 ระบบแจ้งซ่อมรถไฟฟ้าออนไลน์แบบเรียลไทม์ รองรับมือถือและเดสก์ท็อป พร้อมระบบเสียงพูดแนะนำภาษาไทย หน้าจอ Booting หน้าช่าง หน้า Admin สร้างลิงก์สาขา ดาวน์โหลด Source Code และตารางประวัติสไตล์ Excel
 
@@ -27,6 +27,7 @@
     - `BootScreen.tsx`
     - `BranchManagerPanel.tsx`
     - `ExcelHistoryTable.tsx`
+    - `InkRipple.tsx`
     - `RepairDetailsModal.tsx`
     - `SourceExportPanel.tsx`
     - `Status3DIcon.tsx`
