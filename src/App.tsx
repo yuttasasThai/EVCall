@@ -1,7 +1,11 @@
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
   Clock,
+  History,
   ShieldCheck,
   Volume2,
   VolumeX,
@@ -17,11 +21,19 @@ import { BootScreen } from './components/BootScreen';
 import { RippleButton, RippleLayer, useInkRipple } from './components/InkRipple';
 import { RepairDetailsModal } from './components/RepairDetailsModal';
 import { VehicleSelectorModal } from './components/VehicleSelectorModal';
-import type { VehicleOption } from './constants/vehicles';
+import { VEHICLE_OPTIONS, type VehicleOption } from './constants/vehicles';
 import { APP_NAME, APP_VERSION } from './constants/version';
 import { useRepairSocket } from './hooks/useRepairSocket';
-import type { CreateRepairPayload, RepairTicket } from './types/repair';
-import { playAlertChime, triggerChromeNotification } from './utils/notifications';
+import {
+  REPAIR_STATUS_STEPS,
+  type CreateRepairPayload,
+  type RepairTicket,
+} from './types/repair';
+import {
+  formatThaiDateTime,
+  playAlertChime,
+  triggerChromeNotification,
+} from './utils/notifications';
 import {
   preloadVoices,
   setVoiceEnabled,
@@ -31,6 +43,32 @@ import {
 } from './utils/voice';
 
 const ACTIVE_TICKET_STORAGE_KEY = 'ev_care_active_ticket_id';
+const HISTORY_TICKETS_STORAGE_KEY = 'ev_care_ticket_history_ids';
+
+function loadStoredTicketHistoryIds(branchCode: string): string[] {
+  if (typeof window === 'undefined') return [];
+  const ids: string[] = [];
+  try {
+    const raw = window.localStorage.getItem(`${HISTORY_TICKETS_STORAGE_KEY}_${branchCode}`);
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (typeof item === 'string' && item && !ids.includes(item)) {
+            ids.push(item);
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore malformed localStorage history
+  }
+  const activeId = window.localStorage.getItem(`${ACTIVE_TICKET_STORAGE_KEY}_${branchCode}`);
+  if (activeId && !ids.includes(activeId)) {
+    ids.unshift(activeId);
+  }
+  return ids;
+}
 
 function getInitialBranchCode(): string {
   if (typeof window === 'undefined') return 'main';
@@ -54,6 +92,11 @@ export default function App() {
     }
     return null;
   });
+
+  const [historyTicketIds, setHistoryTicketIds] = useState<string[]>(() =>
+    loadStoredTicketHistoryIds(getInitialBranchCode()),
+  );
+  const [historyExpanded, setHistoryExpanded] = useState<boolean>(false);
 
   const [showStatusScreen, setShowStatusScreen] = useState<boolean>(false);
   const [vehicleModalOpen, setVehicleModalOpen] = useState<boolean>(false);
@@ -113,6 +156,10 @@ export default function App() {
   const inQueueCount = inQueueRepairs.length;
   const waitingAcceptCount = inQueueRepairs.filter((r) => r.status === 'pending').length;
   const activeRepairCount = inQueueCount - waitingAcceptCount;
+
+  const personalHistoryTickets = historyTicketIds
+    .map((id) => branchRepairs.find((r) => r.id === id))
+    .filter((r): r is RepairTicket => Boolean(r));
 
   useEffect(() => {
     if (activeTicketId && repairs.length > 0 && !activeTicket) {
@@ -257,12 +304,30 @@ export default function App() {
     const created = await createRepair(payload);
     window.localStorage.setItem(`${ACTIVE_TICKET_STORAGE_KEY}_${branchCode}`, created.id);
     setActiveTicketId(created.id);
+    setHistoryTicketIds((prev) => {
+      const next = [created.id, ...prev.filter((id) => id !== created.id)].slice(0, 50);
+      try {
+        window.localStorage.setItem(
+          `${HISTORY_TICKETS_STORAGE_KEY}_${branchCode}`,
+          JSON.stringify(next),
+        );
+      } catch {
+        // Ignore storage quota errors
+      }
+      return next;
+    });
     setSelectedVehicle(null);
     setVehicleModalOpen(false);
     setShowStatusScreen(true);
 
     const techName = shopInfo.technicianName || 'สมชาย';
     speakThai(`ช่าง${techName} ขอบคุณคับ จะรีบติดต่อกลับโดยเร็ว`);
+  };
+
+  const handleOpenHistoryTicket = (ticketId: string) => {
+    window.localStorage.setItem(`${ACTIVE_TICKET_STORAGE_KEY}_${branchCode}`, ticketId);
+    setActiveTicketId(ticketId);
+    setShowStatusScreen(true);
   };
 
   const handleOpenTechnician = () => {
@@ -434,6 +499,7 @@ export default function App() {
         ) : showStatusScreen && activeTicket ? (
           <ActiveTicketStatus
             ticket={activeTicket}
+            branchRepairs={branchRepairs}
             shopInfo={shopInfo}
             isConnected={isConnected}
             onNewRequest={handleOpenVehicleModal}
@@ -541,10 +607,117 @@ export default function App() {
               </div>
             </div>
 
-            {/* Program Version displayed cleanly on Main Screen */}
-            <footer className="text-[11px] sm:text-xs text-slate-400 font-mono-tabular break-words">
-              {APP_NAME} · {shopInfo.branchName} · เวอร์ชัน {APP_VERSION}
-            </footer>
+            {/* Personal Repair History Bar (from localStorage ticket IDs) */}
+            <div className="w-full max-w-md space-y-3">
+              <section
+                aria-label="ประวัติส่วนตัว"
+                className="w-full rounded-2xl bg-white border border-slate-200/90 shadow-xs text-left overflow-hidden"
+              >
+                <RippleButton
+                  onClick={() => setHistoryExpanded((prev) => !prev)}
+                  aria-expanded={historyExpanded}
+                  className="w-full min-h-[52px] px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                      <History className="w-4.5 h-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-tight">
+                        ประวัติส่วนตัว
+                      </p>
+                      <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
+                        {isLoading
+                          ? 'กำลังโหลดประวัติการซ่อม...'
+                          : personalHistoryTickets.length === 0
+                            ? 'ยังไม่มีประวัติแจ้งซ่อมในอุปกรณ์นี้'
+                            : `แตะเพื่อดูรายการแจ้งซ่อมย้อนหลังของคุณ`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 pl-2 border-l border-slate-100">
+                    <span className="text-xs sm:text-sm font-bold font-mono-tabular text-slate-700 whitespace-nowrap">
+                      {isLoading ? '...' : `${personalHistoryTickets.length} รายการ`}
+                    </span>
+                    {historyExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    )}
+                  </div>
+                </RippleButton>
+
+                {historyExpanded && (
+                  <div className="border-t border-slate-100 bg-slate-50/40 max-h-64 overflow-y-auto divide-y divide-slate-100">
+                    {personalHistoryTickets.length === 0 ? (
+                      <div className="px-4 py-4 text-center text-xs text-slate-500">
+                        เมื่อคุณกดแจ้งซ่อม ระบบจะบันทึกประวัติการซ่อมไว้ที่อุปกรณ์นี้ให้อัตโนมัติ
+                      </div>
+                    ) : (
+                      personalHistoryTickets.map((item) => {
+                        const statusMeta = REPAIR_STATUS_STEPS.find((s) => s.id === item.status);
+                        const vehicleMeta = VEHICLE_OPTIONS.find((v) => v.id === item.vehicleType);
+                        const isDone = item.status === 'completed';
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleOpenHistoryTicket(item.id)}
+                            className="w-full min-h-[58px] px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-sky-50/60 active:bg-sky-100/60 transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {vehicleMeta ? (
+                                <img
+                                  src={vehicleMeta.imageUrl}
+                                  alt={item.vehicleLabel}
+                                  referrerPolicy="no-referrer"
+                                  className="w-9 h-9 rounded-xl object-contain bg-white border border-slate-200 p-0.5 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                                  <Wrench className="w-4 h-4 text-slate-500" />
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
+                                  <span className="font-mono-tabular">{item.code}</span>
+                                  <span aria-hidden="true" className="text-slate-300">
+                                    ·
+                                  </span>
+                                  <span className="truncate">{item.vehicleLabel}</span>
+                                </div>
+                                <p className="text-[11px] text-slate-600 truncate mt-0.5">
+                                  {item.issue}
+                                </p>
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5 font-mono-tabular">
+                                  <span>{formatThaiDateTime(item.createdAt)}</span>
+                                  <span aria-hidden="true">·</span>
+                                  <span
+                                    className={`font-sans font-semibold ${
+                                      isDone ? 'text-emerald-700' : 'text-sky-700'
+                                    }`}
+                                  >
+                                    {statusMeta?.shortLabel || item.status}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* Program Version displayed cleanly on Main Screen */}
+              <footer className="text-[11px] sm:text-xs text-slate-400 font-mono-tabular break-words text-center">
+                {APP_NAME} · {shopInfo.branchName} · เวอร์ชัน {APP_VERSION}
+              </footer>
+            </div>
           </div>
         )}
       </main>
