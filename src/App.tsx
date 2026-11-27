@@ -44,6 +44,7 @@ import {
 
 const ACTIVE_TICKET_STORAGE_KEY = 'ev_care_active_ticket_id';
 const HISTORY_TICKETS_STORAGE_KEY = 'ev_care_ticket_history_ids';
+const COVER_IMAGE_URL = '/assets/aistudio/file_0000000091b08211a8a31cd9f15adfd2_e8b2ef93.png';
 
 function loadStoredTicketHistoryIds(branchCode: string): string[] {
   if (typeof window === 'undefined') return [];
@@ -104,6 +105,7 @@ export default function App() {
   const [incomingAlert, setIncomingAlert] = useState<RepairTicket | null>(null);
   const [voiceOn, setVoiceOn] = useState<boolean>(true);
   const [bootDone, setBootDone] = useState<boolean>(false);
+  const [coverImageError, setCoverImageError] = useState<boolean>(false);
 
   const arrivalVoiceCountRef = useRef(0);
   const handleBootComplete = useCallback(() => setBootDone(true), []);
@@ -116,6 +118,15 @@ export default function App() {
 
   useEffect(() => {
     preloadVoices();
+    const handleUnlockOnGesture = () => {
+      unlockSpeechAudio({ audioOnly: true });
+    };
+    window.addEventListener('pointerdown', handleUnlockOnGesture, { passive: true });
+    window.addEventListener('keydown', handleUnlockOnGesture, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleUnlockOnGesture);
+      window.removeEventListener('keydown', handleUnlockOnGesture);
+    };
   }, []);
 
   const handleRepairCreated = useCallback(
@@ -125,6 +136,9 @@ export default function App() {
       if (viewMode === 'admin' || matchesTechBranch) {
         setIncomingAlert(repair);
         playAlertChime();
+        if (voiceOn) {
+          speakThai(`มีงานแจ้งซ่อมใหม่ ${repair.vehicleLabel} จากคุณ ${repair.customerName}`);
+        }
         triggerChromeNotification(
           `แจ้งซ่อมใหม่: ${repair.vehicleLabel}`,
           `${repair.customerName} (${repair.phone}) · ${repair.issue}`,
@@ -132,7 +146,7 @@ export default function App() {
         );
       }
     },
-    [branchCode, viewMode],
+    [branchCode, viewMode, voiceOn],
   );
 
   const {
@@ -202,7 +216,7 @@ export default function App() {
       if (cancelled || arrivalVoiceCountRef.current >= 2) return;
       const target = e.target as HTMLElement | null;
       if (
-        target?.closest('button[aria-label="แจ้งซ่อมงาน"]') ||
+        target?.closest('button[aria-label="กดเพื่อแจ้งซ่อม"]') ||
         target?.closest('button[data-voice-toggle="true"]')
       ) {
         return;
@@ -267,7 +281,7 @@ export default function App() {
     setVoiceOn(next);
     setVoiceEnabled(next);
     if (next) {
-      unlockSpeechAudio();
+      unlockSpeechAudio({ audioOnly: true });
       if (
         viewMode === 'customer' &&
         !showStatusScreen &&
@@ -287,7 +301,7 @@ export default function App() {
   // 1.2 Open Vehicle Selector -> speak prompt
   const handleOpenVehicleModal = () => {
     arrivalVoiceCountRef.current = 2; // Stop arrival reminders once user interacts
-    unlockSpeechAudio();
+    unlockSpeechAudio({ audioOnly: true });
     setVehicleModalOpen(true);
     speakThai('กรุณาเลือกชนิดรถที่จะแจ้ง');
   };
@@ -506,69 +520,31 @@ export default function App() {
             onBackHome={() => setShowStatusScreen(false)}
           />
         ) : (
-          /* Customer Home: Queue Status Bar + ONLY ONE 3D Circular Repair Button + Version Footer */
-          <div className="flex-1 flex flex-col items-center justify-between px-4 sm:px-6 py-4 sm:py-7 text-center">
-            {/* Real-time Queue Status Bar */}
-            <div
-              aria-live="polite"
-              className="w-full max-w-md rounded-2xl bg-white border border-slate-200/90 shadow-xs px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3 text-left"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isLoading
-                      ? 'bg-slate-100 text-slate-500'
-                      : inQueueCount === 0
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : inQueueCount >= 4
-                          ? 'bg-amber-50 text-amber-600'
-                          : 'bg-sky-50 text-sky-600'
-                  }`}
-                >
-                  {!isLoading && inQueueCount === 0 ? (
-                    <CheckCircle2 className="w-4.5 h-4.5" />
-                  ) : (
-                    <Clock className="w-4.5 h-4.5" />
-                  )}
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-tight">
-                    จำนวนคิวในคิว
-                  </p>
-                  <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
-                    {isLoading
-                      ? 'กำลังตรวจสอบคิวล่าสุด...'
-                      : inQueueCount === 0
-                        ? 'คิวว่าง · แจ้งซ่อมได้ทันที'
-                        : `รอรับงาน ${waitingAcceptCount} คัน · กำลังดำเนินการ ${activeRepairCount} คัน`}
-                  </p>
-                </div>
+          /* Customer Home: Cover Banner (Top) + Repair Hero + Queue Status & History (Bottom) */
+          <div className="flex-1 flex flex-col items-center justify-between px-4 sm:px-6 py-3 sm:py-6 text-center gap-3">
+            {/* Top Cover Image spanning appropriate full width */}
+            {!coverImageError ? (
+              <div className="w-full max-w-xl rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-xs p-1.5 sm:p-2.5">
+                <img
+                  src={COVER_IMAGE_URL}
+                  alt={`${APP_NAME} ช่างหน่อยชุมแพ รับซ่อมรถไฟฟ้า นอกสถานที่`}
+                  referrerPolicy="no-referrer"
+                  onError={() => setCoverImageError(true)}
+                  className="w-full h-auto max-h-[24dvh] sm:max-h-[230px] object-contain mx-auto block"
+                />
               </div>
+            ) : (
+              <div />
+            )}
 
-              <div className="text-right shrink-0 pl-2 border-l border-slate-100">
-                <span
-                  className={`text-base sm:text-lg font-bold font-mono-tabular whitespace-nowrap ${
-                    isLoading
-                      ? 'text-slate-400'
-                      : inQueueCount === 0
-                        ? 'text-emerald-700'
-                        : inQueueCount >= 4
-                          ? 'text-amber-700'
-                          : 'text-sky-700'
-                  }`}
-                >
-                  {isLoading ? '...' : `${inQueueCount} คัน`}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center w-full max-w-lg my-3 sm:my-4">
-              <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-tight text-balance">
-                แจ้งซ่อมรถไฟฟ้าออนไลน์
+            <div className="flex flex-col items-center w-full max-w-lg my-1 sm:my-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight leading-snug text-balance">
+                ศูนย์รับแจ้งซ่อม
+                <br />
+                รถไฟฟ้า ประจำ อ.ชุมแพ
               </h1>
 
-              <div className="my-5 sm:my-8">
+              <div className="my-4 sm:my-6">
                 <div className="btn-3d-outer p-3 sm:p-4 rounded-full inline-flex items-center justify-center">
                   <button
                     type="button"
@@ -578,7 +554,7 @@ export default function App() {
                     onPointerLeave={releaseMainBtnRipple}
                     onPointerCancel={releaseMainBtnRipple}
                     onClick={handleOpenVehicleModal}
-                    aria-label="แจ้งซ่อมงาน"
+                    aria-label="กดเพื่อแจ้งซ่อม"
                     className="btn-3d-core relative overflow-hidden w-44 h-44 sm:w-56 sm:h-56 rounded-full flex flex-col items-center justify-center text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300"
                   >
                     <span
@@ -586,7 +562,7 @@ export default function App() {
                       className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 rounded-full bg-white/30 blur-[2px]"
                     />
 
-                    <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 border border-white/30 shadow-inner mb-2 sm:mb-2.5">
+                    <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 border border-white/30 shadow-inner mb-2.5">
                       <Wrench className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow" strokeWidth={2.2} />
                       <Zap
                         className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300 fill-amber-300 absolute -right-1 -bottom-1 drop-shadow"
@@ -594,11 +570,8 @@ export default function App() {
                       />
                     </div>
 
-                    <span className="text-xl sm:text-2xl font-bold tracking-tight drop-shadow-sm">
-                      แจ้งซ่อมงาน
-                    </span>
-                    <span className="text-[11px] sm:text-xs text-sky-100 font-medium mt-0.5">
-                      แตะเพื่อเริ่มต้น
+                    <span className="text-lg sm:text-2xl font-bold tracking-tight drop-shadow-sm px-3 leading-tight">
+                      กดเพื่อแจ้งซ่อม
                     </span>
 
                     <RippleLayer ripples={mainBtnRipples} tone="light" />
@@ -607,8 +580,62 @@ export default function App() {
               </div>
             </div>
 
-            {/* Personal Repair History Bar (from localStorage ticket IDs) */}
-            <div className="w-full max-w-md space-y-3">
+            {/* Bottom Bars: Real-time Queue Status + Personal Repair History + Version Footer */}
+            <div className="w-full max-w-md space-y-2.5">
+              {/* Real-time Queue Status Bar */}
+              <div
+                aria-live="polite"
+                className="w-full rounded-2xl bg-white border border-slate-200/90 shadow-xs px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3 text-left"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      isLoading
+                        ? 'bg-slate-100 text-slate-500'
+                        : inQueueCount === 0
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : inQueueCount >= 4
+                            ? 'bg-amber-50 text-amber-600'
+                            : 'bg-sky-50 text-sky-600'
+                    }`}
+                  >
+                    {!isLoading && inQueueCount === 0 ? (
+                      <CheckCircle2 className="w-4.5 h-4.5" />
+                    ) : (
+                      <Clock className="w-4.5 h-4.5" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-tight">
+                      จำนวนคิวในคิว
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
+                      {isLoading
+                        ? 'กำลังตรวจสอบคิวล่าสุด...'
+                        : inQueueCount === 0
+                          ? 'คิวว่าง · แจ้งซ่อมได้ทันที'
+                          : `รอรับงาน ${waitingAcceptCount} คัน · กำลังดำเนินการ ${activeRepairCount} คัน`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0 pl-2 border-l border-slate-100">
+                  <span
+                    className={`text-base sm:text-lg font-bold font-mono-tabular whitespace-nowrap ${
+                      isLoading
+                        ? 'text-slate-400'
+                        : inQueueCount === 0
+                          ? 'text-emerald-700'
+                          : inQueueCount >= 4
+                            ? 'text-amber-700'
+                            : 'text-sky-700'
+                    }`}
+                  >
+                    {isLoading ? '...' : `${inQueueCount} คัน`}
+                  </span>
+                </div>
+              </div>
               <section
                 aria-label="ประวัติส่วนตัว"
                 className="w-full rounded-2xl bg-white border border-slate-200/90 shadow-xs text-left overflow-hidden"
